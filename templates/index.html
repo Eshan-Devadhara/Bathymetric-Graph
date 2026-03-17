@@ -1,23 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Bathymetric Visualizer</title>
+    <title>Bathymetric GIS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
 
-<h2>Upload Bathymetric Data</h2>
+<!-- TOP TOOLBAR -->
+<div class="toolbar">
+    <button onclick="document.getElementById('fileInput').click()">📂 Load Layer</button>
+    <input type="file" id="fileInput" hidden onchange="uploadFile()">
+    <span class="title">Bathymetric GIS Viewer</span>
+</div>
 
-<form method="POST" enctype="multipart/form-data">
-    <input type="file" name="file" required>
-    <button type="submit">Visualize</button>
-</form>
+<!-- MAIN LAYOUT -->
+<div class="container">
 
-<hr>
+    <!-- LEFT PANEL -->
+    <div class="sidebar">
+        <h3>Layers</h3>
+        <ul id="layerList"></ul>
+    </div>
 
-{% if plot %}
-    {{ plot | safe }}
-{% endif %}
+    <!-- MAP AREA -->
+    <div class="map-container">
+        {% if plot %}
+            {{ plot | safe }}
+        {% else %}
+            <div class="placeholder">Upload a dataset to visualize</div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+    Ready | CRS: WGS84 | Resolution: Auto
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
 
 </body>
 </html>

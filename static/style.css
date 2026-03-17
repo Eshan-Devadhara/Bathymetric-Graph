@@ -1,0 +1,71 @@
+body {
+    margin: 0;
+    font-family: Segoe UI, sans-serif;
+    background: #1e1e1e;
+    color: white;
+}
+
+/* Toolbar */
+.toolbar {
+    background: #2c2c2c;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.toolbar button {
+    background: #0078d7;
+    border: none;
+    padding: 8px 12px;
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.toolbar .title {
+    margin-left: 20px;
+    font-weight: bold;
+}
+
+/* Layout */
+.container {
+    display: flex;
+    height: calc(100vh - 80px);
+}
+
+/* Sidebar */
+.sidebar {
+    width: 250px;
+    background: #252526;
+    padding: 10px;
+    border-right: 1px solid #444;
+}
+
+.sidebar h3 {
+    margin-top: 0;
+}
+
+#layerList li {
+    padding: 5px;
+    border-bottom: 1px solid #444;
+}
+
+/* Map */
+.map-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.placeholder {
+    color: #888;
+}
+
+/* Status bar */
+.statusbar {
+    height: 30px;
+    background: #2c2c2c;
+    padding: 5px 10px;
+    font-size: 12px;
+}
