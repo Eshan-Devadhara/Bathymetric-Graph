@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bathymetric Visualizer</title>
+</head>
+
+<body>
+
+<h2>Upload Bathymetric Data</h2>
+
+<form method="POST" enctype="multipart/form-data">
+    <input type="file" name="file" required>
+    <button type="submit">Visualize</button>
+</form>
+
+<hr>
+
+{% if plot %}
+    {{ plot | safe }}
+{% endif %}
+
+</body>
+</html>
