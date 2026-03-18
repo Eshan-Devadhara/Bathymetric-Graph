@@ -30,3 +30,10 @@ function addLayer(name) {
         list.appendChild(li);
     }
 }
+function exportOBJ() {
+    window.open("/export/obj", "_blank");
+}
+
+function exportPNG() {
+    window.open("/export/png", "_blank");
+}
