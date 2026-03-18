@@ -1,11 +1,11 @@
-// ---------------- UPLOAD FILE (FIXED) ----------------
+// ---------------- UPLOAD FILE (FIXED PROPERLY) ----------------
 function uploadFile() {
 
     const fileInput = document.getElementById("fileInput");
     const file = fileInput.files[0];
 
     if (!file) {
-        alert("Please select a file");
+        alert("Select a file first");
         return;
     }
 
@@ -16,25 +16,43 @@ function uploadFile() {
         method: "POST",
         body: formData
     })
-    .then(response => response.text())
+    .then(res => res.text())
     .then(html => {
 
-        // Parse returned HTML
+        // Parse HTML
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
 
-        // Extract only the plot section
-        const newPlot = doc.querySelector(".map-container");
+        // Get new map container
+        const newContainer = doc.querySelector(".map-container");
 
-        if (newPlot) {
-            document.querySelector(".map-container").innerHTML = newPlot.innerHTML;
+        if (newContainer) {
+
+            const target = document.querySelector(".map-container");
+
+            // Replace HTML
+            target.innerHTML = newContainer.innerHTML;
+
+            // 🔥 EXECUTE ALL SCRIPTS (CRITICAL FIX)
+            const scripts = target.querySelectorAll("script");
+
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement("script");
+
+                if (oldScript.src) {
+                    newScript.src = oldScript.src;
+                } else {
+                    newScript.textContent = oldScript.textContent;
+                }
+
+                document.body.appendChild(newScript);
+            });
         }
 
-        // Add layer to sidebar
         addLayer(file.name);
     })
-    .catch(error => {
-        console.error("Upload failed:", error);
+    .catch(err => {
+        console.error(err);
         alert("Upload failed");
     });
 }
@@ -47,9 +65,17 @@ function addLayer(name) {
 
     if (list) {
 
-        // Avoid duplicates
-        const existing = Array.from(list.children).some(li => li.textContent === name);
-        if (existing) return;
+        // Remove "No layers loaded"
+        if (list.children.length === 1 &&
+            list.children[0].textContent === "No layers loaded") {
+            list.innerHTML = "";
+        }
+
+        // Prevent duplicates
+        const exists = Array.from(list.children)
+            .some(li => li.textContent === name);
+
+        if (exists) return;
 
         const li = document.createElement("li");
         li.textContent = name;
@@ -59,16 +85,12 @@ function addLayer(name) {
 }
 
 
-// ---------------- EXPORT PNG ----------------
+// ---------------- EXPORT ----------------
 function exportPNG() {
     window.location.href = "/export/png";
 }
 
-
-// ---------------- EXPORT 3D ----------------
 function export3D() {
-
     const format = document.getElementById("format").value;
-
     window.location.href = "/export/3d/" + format;
 }
