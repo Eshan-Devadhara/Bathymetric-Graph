@@ -1,44 +1,61 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Bathymetric GIS</title>
+    <title>Bathymetric GIS Viewer</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
 
-<!-- TOP TOOLBAR -->
+<!-- 🔷 TOOLBAR -->
 <div class="toolbar">
-    <button onclick="document.getElementById('fileInput').click()">📂 Load Layer</button>
-    <input type="file" id="fileInput" hidden onchange="uploadFile()">
-    <span class="title">Bathymetric GIS Viewer</span>
-    <button onclick="exportOBJ()">Export 3D</button>
+    
+    <form method="POST" enctype="multipart/form-data" style="display:inline;">
+        <input type="file" name="file" required>
+        <button type="submit">📂 Load Layer</button>
+    </form>
+
     <button onclick="exportPNG()">Export 2D</button>
+
+    <select id="format">
+        <option value="obj">OBJ</option>
+        <option value="stl">STL</option>
+    </select>
+
+    <button onclick="export3D()">Export 3D</button>
+
+    <span class="title">Bathymetric GIS Viewer</span>
 </div>
 
-<!-- MAIN LAYOUT -->
+<!-- 🔷 MAIN LAYOUT -->
 <div class="container">
 
-    <!-- LEFT PANEL -->
+    <!-- 🔷 SIDEBAR -->
     <div class="sidebar">
         <h3>Layers</h3>
-        <ul id="layerList"></ul>
+        <ul>
+            <li>Uploaded Layer</li>
+        </ul>
     </div>
 
-    <!-- MAP AREA -->
+    <!-- 🔷 MAP AREA -->
     <div class="map-container">
+
         {% if plot %}
             {{ plot | safe }}
         {% else %}
-            <div class="placeholder">Upload a dataset to visualize</div>
+            <div class="placeholder">
+                Upload a dataset to visualize
+            </div>
         {% endif %}
+
     </div>
 
 </div>
 
-<!-- STATUS BAR -->
+<!-- 🔷 STATUS BAR -->
 <div class="statusbar">
-    Ready | CRS: WGS84 | Resolution: Auto
+    Ready | CRS: Auto | Mode: Visualization
 </div>
 
 <script src="{{ url_for('static', filename='app.js') }}"></script>

@@ -1,18 +1,15 @@
 import numpy as np
 import trimesh
-from PIL import Image
-import os
 
 
-# ---------------- 3D EXPORT ---------------- #
-def export_to_obj(grid_x, grid_y, grid_z, output_path):
+# ---------------- CREATE MESH ---------------- #
+def create_mesh(grid_x, grid_y, grid_z):
 
     rows, cols = grid_z.shape
 
     vertices = []
     faces = []
 
-    # Create vertices
     for i in range(rows):
         for j in range(cols):
             vertices.append([
@@ -23,7 +20,6 @@ def export_to_obj(grid_x, grid_y, grid_z, output_path):
 
     vertices = np.array(vertices)
 
-    # Create faces (triangles)
     def index(i, j):
         return i * cols + j
 
@@ -38,20 +34,19 @@ def export_to_obj(grid_x, grid_y, grid_z, output_path):
             faces.append([v1, v2, v3])
             faces.append([v2, v4, v3])
 
-    mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
-
-    mesh.export(output_path)
+    return trimesh.Trimesh(vertices=vertices, faces=faces)
 
 
-# ---------------- 2D IMAGE EXPORT ---------------- #
-def export_to_png(grid_z, output_path):
+# ---------------- EXPORT 3D ---------------- #
+def export_3d(grid_x, grid_y, grid_z, file_path, file_type):
 
-    z = np.nan_to_num(grid_z)
+    mesh = create_mesh(grid_x, grid_y, grid_z)
 
-    # Normalize 0–255
-    z_norm = (z - z.min()) / (z.max() - z.min()) * 255
-    z_norm = z_norm.astype(np.uint8)
+    if file_type == "obj":
+        mesh.export(file_path)
 
-    image = Image.fromarray(z_norm)
+    elif file_type == "stl":
+        mesh.export(file_path)
 
-    image.save(output_path)
+    else:
+        raise ValueError("Unsupported format")
