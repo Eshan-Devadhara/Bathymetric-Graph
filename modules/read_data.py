@@ -1,78 +1,119 @@
 import pandas as pd
-import rasterio
 import numpy as np
+import rasterio
+import xarray as xr
+import os
 
 
-def detect_columns(columns):
-    """
-    Robust column detection for real-world bathymetry datasets.
-    """
+def load_data(filepath):
 
-    col_map = {col.lower(): col for col in columns}
+    ext = os.path.splitext(filepath)[1].lower()
 
-    lat_candidates = ["lat", "latitude", "y"]
-    lon_candidates = ["lon", "longitude", "long", "x"]
-    depth_candidates = ["depth", "z", "elevation", "bathymetry"]
+    if ext == ".csv":
+        return load_csv(filepath)
 
-    lat_col = next((col_map[c] for c in col_map if c in lat_candidates), None)
-    lon_col = next((col_map[c] for c in col_map if c in lon_candidates), None)
-    depth_col = next((col_map[c] for c in col_map if c in depth_candidates), None)
+    elif ext in [".tif", ".tiff"]:
+        return load_geotiff(filepath)
 
-    return lat_col, lon_col, depth_col
+    elif ext in [".nc"]:
+        return load_netcdf(filepath)
 
-
-def load_data(file_path):
-
-    # ---------- CSV ----------
-    if file_path.endswith(".csv"):
-
-        df = pd.read_csv(file_path)
-
-        lat_col, lon_col, depth_col = detect_columns(df.columns)
-
-        if not all([lat_col, lon_col, depth_col]):
-
-            print("DEBUG: Available columns ->", list(df.columns))
-
-            raise ValueError(
-                f"Could not detect columns.\n"
-                f"Found: {list(df.columns)}\n"
-                f"Looking for lat/lon/depth variants"
-            )
-
-        return (
-            df[lon_col].values,
-            df[lat_col].values,
-            df[depth_col].values
-        )
-
-    # ---------- GeoTIFF ----------
-    elif file_path.endswith((".tif", ".tiff")):
-
-        with rasterio.open(file_path) as src:
-
-            data = src.read(1)
-            transform = src.transform
-
-            xs, ys, zs = [], [], []
-
-            rows, cols = data.shape
-
-            for r in range(rows):
-                for c in range(cols):
-
-                    z = data[r, c]
-
-                    if np.isnan(z):
-                        continue
-
-                    x, y = rasterio.transform.xy(transform, r, c)
-
-                    xs.append(x)
-                    ys.append(y)
-                    zs.append(z)
-
-        return np.array(xs), np.array(ys), np.array(zs)
+    elif ext in [".asc"]:
+        return load_ascii(filepath)
 
     else:
-        raise ValueError("Unsupported file format")
+        raise ValueError(f"Unsupported file format: {ext}")
+
+
+# ---------------- CSV ---------------- #
+def load_csv(filepath):
+
+    df = pd.read_csv(filepath)
+
+    cols = [c.lower() for c in df.columns]
+
+    # Flexible detection
+    if "lat" in cols and "lon" in cols:
+        lat = df[df.columns[cols.index("lat")]]
+        lon = df[df.columns[cols.index("lon")]]
+    elif "lat" in cols and "long" in cols:
+        lat = df[df.columns[cols.index("lat")]]
+        lon = df[df.columns[cols.index("long")]]
+    elif "latitude" in cols and "longitude" in cols:
+        lat = df[df.columns[cols.index("latitude")]]
+        lon = df[df.columns[cols.index("longitude")]]
+    elif "y" in cols and "x" in cols:
+        lat = df[df.columns[cols.index("y")]]
+        lon = df[df.columns[cols.index("x")]]
+    else:
+        raise ValueError(f"Could not detect coordinates. Found: {df.columns}")
+
+    # Depth detection
+    if "depth" in cols:
+        z = df[df.columns[cols.index("depth")]]
+    elif "z" in cols:
+        z = df[df.columns[cols.index("z")]]
+    else:
+        raise ValueError("Depth column not found")
+
+    return lon.values, lat.values, z.values
+
+
+# ---------------- GeoTIFF ---------------- #
+def load_geotiff(filepath):
+
+    with rasterio.open(filepath) as src:
+        z = src.read(1)
+
+        transform = src.transform
+
+        rows, cols = z.shape
+
+        xs = np.arange(cols)
+        ys = np.arange(rows)
+
+        xs, ys = np.meshgrid(xs, ys)
+
+        lon, lat = rasterio.transform.xy(transform, ys, xs)
+
+        return np.array(lon).flatten(), np.array(lat).flatten(), z.flatten()
+
+
+# ---------------- NetCDF ---------------- #
+def load_netcdf(filepath):
+
+    ds = xr.open_dataset(filepath)
+
+    # Try to detect variables
+    possible_z = list(ds.data_vars.keys())[0]
+    z = ds[possible_z]
+
+    lat = ds.coords.get("lat") or ds.coords.get("latitude")
+    lon = ds.coords.get("lon") or ds.coords.get("longitude")
+
+    if lat is None or lon is None:
+        raise ValueError("NetCDF missing lat/lon")
+
+    lon_grid, lat_grid = np.meshgrid(lon.values, lat.values)
+
+    return lon_grid.flatten(), lat_grid.flatten(), z.values.flatten()
+
+
+# ---------------- ESRI ASCII ---------------- #
+def load_ascii(filepath):
+
+    with rasterio.open(filepath) as src:
+        z = src.read(1)
+
+        transform = src.transform
+
+        rows, cols = z.shape
+
+        xs = np.arange(cols)
+        ys = np.arange(rows)
+
+        xs, ys = np.meshgrid(xs, ys)
+
+        lon, lat = rasterio.transform.xy(transform, ys, xs)
+
+        return np.array(lon).flatten(), np.array(lat).flatten(), z.flatten()

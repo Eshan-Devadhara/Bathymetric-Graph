@@ -1,111 +1,95 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, jsonify
 import os
+import uuid
 import numpy as np
 from PIL import Image
 
-from modules.exporter import export_3d  # ✅ FIXED IMPORT
+from modules.exporter import export_3d
 from config import UPLOAD_FOLDER, GRID_RESOLUTION
 from modules.read_data import load_data
 from modules.generate_map import generate_bathymetric_grid
-from modules.visualize import create_plot
-
 
 app = Flask(__name__)
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# ✅ GLOBAL STORAGE
-grid_data = {}
+# Dictionary to map unique session IDs to their loaded grid data
+grid_sessions = {}
 
+# Ensure folders exist
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+os.makedirs("data/output", exist_ok=True)
 
-# ---------------- MAIN ROUTE ---------------- #
 @app.route("/", methods=["GET", "POST"])
-def index():
+def home():
+    if request.method == "GET":
+        return render_template("index.html")
 
-    global grid_data
+    file = request.files.get("file")
+    if not file or file.filename == "":
+        return jsonify({"error": "No file uploaded"}), 400
 
-    plot_html = None
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+    
+    try:
+        file.save(filepath)
+    except Exception as e:
+        return jsonify({"error": f"Failed to save file: {str(e)}"}), 500
 
-    if request.method == "POST":
+    try:
+        x, y, z = load_data(filepath)
+        grid_x, grid_y, grid_z = generate_bathymetric_grid(x, y, z, GRID_RESOLUTION)
+    except Exception as e:
+        return jsonify({"error": f"Failed to process data: {str(e)}"}), 400
 
-        file = request.files["file"]
+    session_id = str(uuid.uuid4())
+    grid_sessions[session_id] = {
+        "x": grid_x,
+        "y": grid_y,
+        "z": grid_z
+    }
 
-        if file:
+    return jsonify({
+        "session_id": session_id,
+        "x": grid_x.tolist(),
+        "y": grid_y.tolist(),
+        "z": grid_z.tolist()
+    })
 
-            filepath = os.path.join(
-                app.config["UPLOAD_FOLDER"],
-                file.filename
-            )
+@app.route("/export/png/<session_id>")
+def export_png(session_id):
+    if session_id not in grid_sessions:
+        return "❌ Data session expired or invalid", 404
 
-            file.save(filepath)
-
-            x, y, z = load_data(filepath)
-
-            grid_x, grid_y, grid_z = generate_bathymetric_grid(
-                x, y, z, GRID_RESOLUTION
-            )
-
-            # STORE DATA FOR EXPORT
-            grid_data["x"] = grid_x
-            grid_data["y"] = grid_y
-            grid_data["z"] = grid_z
-
-            plot_html = create_plot(grid_x, grid_y, grid_z)
-
-    return render_template("index.html", plot=plot_html)
-
-
-# ---------------- EXPORT PNG ---------------- #
-@app.route("/export/png")
-def export_png():
-
-    global grid_data
-
-    if not grid_data:
-        return "❌ No data loaded"
-
+    grid_data = grid_sessions[session_id]
     output_dir = "data/output"
-    os.makedirs(output_dir, exist_ok=True)
-
-    path = os.path.join(output_dir, "map.png")
+    path = os.path.join(output_dir, f"map_{session_id}.png")
 
     z = np.nan_to_num(grid_data["z"])
-
     z_norm = (z - z.min()) / (z.max() - z.min()) * 255
     z_norm = z_norm.astype(np.uint8)
 
     image = Image.fromarray(z_norm)
     image.save(path)
 
-    return send_file(path, as_attachment=True)
+    return send_file(path, as_attachment=True, download_name="bathymetric_map.png")
 
+@app.route("/export/3d/<session_id>/<file_type>")
+def export_3d_route(session_id, file_type):
+    if session_id not in grid_sessions:
+        return "❌ Data session expired or invalid", 404
+        
+    if file_type not in ["obj", "stl"]:
+        return "❌ Invalid file type", 400
 
-# ---------------- EXPORT 3D ---------------- #
-@app.route("/export/3d/<file_type>")
-def export_3d_route(file_type):
-
-    global grid_data
-
-    if not grid_data:
-        return "❌ No data loaded"
-
+    grid_data = grid_sessions[session_id]
     output_dir = "data/output"
-    os.makedirs(output_dir, exist_ok=True)
-
-    filename = f"terrain.{file_type}"
+    filename = f"terrain_{session_id}.{file_type}"
     path = os.path.join(output_dir, filename)
 
-    export_3d(
-        grid_data["x"],
-        grid_data["y"],
-        grid_data["z"],
-        path,
-        file_type
-    )
+    export_3d(grid_data["x"], grid_data["y"], grid_data["z"], path, file_type)
 
-    return send_file(path, as_attachment=True)
+    return send_file(path, as_attachment=True, download_name=f"terrain.{file_type}")
 
-
-# ---------------- RUN ---------------- #
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5000)

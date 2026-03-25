@@ -4,5 +4,7 @@ pandas
 scipy
 plotly
 rasterio
+xarray
+netCDF4
 pillow 
 trimesh
